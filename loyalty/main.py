@@ -3,7 +3,7 @@ from contextlib import closing
 
 from fastapi import FastAPI
 
-from . import api_me
+from . import api_me, api_pos
 from .auth import AuthVerifier, FakeVerifier, FirebaseVerifier, init_firebase
 from .config import Settings
 from .db import connect, init_schema
@@ -29,6 +29,7 @@ def create_app(settings: Settings, verifier: AuthVerifier | None = None) -> Fast
     app.state.verifier = verifier
     install_error_handler(app)
     app.include_router(api_me.router)
+    app.include_router(api_pos.router)
 
     @app.get("/health")
     def health() -> dict[str, str]:

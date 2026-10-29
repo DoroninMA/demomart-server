@@ -1,4 +1,6 @@
+import secrets
 import sqlite3
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from .db import timestamp, write_transaction
@@ -61,3 +63,35 @@ def balance(conn: sqlite3.Connection, member_id: int) -> int:
     return conn.execute(
         "SELECT COALESCE(SUM(points), 0) FROM ledger WHERE member_id = ?", (member_id,)
     ).fetchone()[0]
+
+
+
+def by_card(conn: sqlite3.Connection, card: str) -> sqlite3.Row | None:
+    return conn.execute("SELECT * FROM members WHERE card_number = ?", (card,)).fetchone()
+
+
+def new_identification(conn: sqlite3.Connection, member_id: int, at: datetime) -> str:
+    ref = secrets.token_urlsafe(16)
+    conn.execute(
+        "INSERT INTO identifications (ref, member_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+        (ref, member_id, timestamp(at), timestamp(at + timedelta(minutes=10))),
+    )
+    return ref
+
+
+def resolve_ref(
+    conn: sqlite3.Connection, ref: str, at: datetime, allow_expired: bool = False
+) -> sqlite3.Row:
+    row = conn.execute(
+        """
+        SELECT members.*, identifications.expires_at
+        FROM identifications JOIN members ON members.id = identifications.member_id
+        WHERE identifications.ref = ?
+        """,
+        (ref,),
+    ).fetchone()
+    if row is None:
+        raise ApiError(422, "customer_ref_invalid", "Unknown customer reference")
+    if not allow_expired and row["expires_at"] <= timestamp(at):
+        raise ApiError(422, "customer_ref_expired", "Customer session expired, scan the card again")
+    return row
