@@ -5,7 +5,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends, Query, Request
+
+SQLITE_MAX_INT = 2**63 - 1
+PageLimit = Annotated[int, Query(ge=1, le=SQLITE_MAX_INT)]
 
 
 def connect(path: str) -> sqlite3.Connection:

@@ -3,9 +3,9 @@ from dataclasses import asdict, dataclass
 
 from fastapi import APIRouter
 
-from . import members
+from . import members, sales
 from .auth import CurrentMember, SignedIn
-from .db import Db
+from .db import Db, PageLimit
 from .tokens import format_card_number
 
 router = APIRouter(prefix="/v1/me", tags=["member"])
@@ -44,3 +44,7 @@ def session(conn: Db, user: SignedIn) -> MeSession:
 @router.get("")
 def me(conn: Db, member: CurrentMember) -> Me:
     return _profile(conn, member)
+
+@router.get("/history")
+def history(conn: Db, member: CurrentMember, limit: PageLimit = 50) -> list[sales.HistoryItem]:
+    return sales.history(conn, member["id"], limit)

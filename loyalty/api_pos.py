@@ -3,12 +3,12 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, StrictInt
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
-from . import members, rules, tokens
+from . import members, rules, sales, tokens
 from .auth import require_cashier
-from .db import Db
+from .db import Db, PageLimit, SQLITE_MAX_INT
 from .errors import ApiError
 
 router = APIRouter(prefix="/v1/pos", tags=["pos"])
@@ -57,3 +57,65 @@ def quote(payload: QuoteIn, conn: Db, _cashier: Cashier) -> rules.Quote:
 
     member = members.resolve_ref(conn, payload.customer_ref, datetime.now(timezone.utc))
     return rules.quote(payload.amount_cents, payload.redeem_points, members.balance(conn, member["id"]))
+
+
+REGISTER_PATTERN = r"^[A-Za-z0-9_-]{1,32}$"
+
+
+class ReceiptIn(BaseModel):
+    register_id: Annotated[str, Field(pattern=REGISTER_PATTERN)]
+    receipt_no: Annotated[StrictInt, Field(ge=1, le=SQLITE_MAX_INT)]
+
+
+class CommitIn(ReceiptIn, QuoteIn):
+    pass
+
+
+class SaleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    sale_id: int
+    register_id: str
+    receipt_no: int
+    display_name: str | None
+    amount_cents: int
+    redeem_points: int
+    paid_cents: int
+    earned_points: int
+    status: str
+    balance: int | None
+    created_at: str
+
+
+@dataclass
+class NextReceipt:
+    register_id: str
+    next_receipt_no: int
+
+
+RegisterQuery = Annotated[str, Query(pattern=REGISTER_PATTERN)]
+
+
+@router.post("/commit", response_model=SaleOut)
+def commit(payload: CommitIn, conn: Db, _cashier: Cashier) -> sales.SaleResult:
+    return sales.commit_identified(
+        conn, payload.register_id, payload.receipt_no, payload.customer_ref,
+        payload.amount_cents, payload.redeem_points,
+    )
+
+
+@router.post("/refund", response_model=SaleOut)
+def refund(payload: ReceiptIn, conn: Db, _cashier: Cashier) -> sales.SaleResult:
+    return sales.refund(conn, payload.register_id, payload.receipt_no)
+
+
+@router.get("/sales", response_model=list[SaleOut])
+def recent_sales(
+    register_id: RegisterQuery, conn: Db, _cashier: Cashier, limit: PageLimit = 20
+) -> list[sales.SaleResult]:
+    return sales.recent(conn, register_id, limit)
+
+
+@router.get("/next-receipt")
+def next_receipt(register_id: RegisterQuery, conn: Db, _cashier: Cashier) -> NextReceipt:
+    return NextReceipt(register_id, sales.next_receipt_no(conn, register_id))
