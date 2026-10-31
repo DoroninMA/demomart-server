@@ -3,13 +3,14 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
 from . import members, rules, sales, tokens
 from .auth import require_cashier
 from .db import Db, PageLimit, SQLITE_MAX_INT
 from .errors import ApiError
+from .notify import notify_listeners
 
 router = APIRouter(prefix="/v1/pos", tags=["pos"])
 Cashier = Annotated[sqlite3.Row, Depends(require_cashier)]
@@ -97,16 +98,21 @@ RegisterQuery = Annotated[str, Query(pattern=REGISTER_PATTERN)]
 
 
 @router.post("/commit", response_model=SaleOut)
-def commit(payload: CommitIn, conn: Db, _cashier: Cashier) -> sales.SaleResult:
-    return sales.commit_identified(
+def commit(payload: CommitIn, request: Request, conn: Db, _cashier: Cashier) -> sales.SaleResult:
+    result, is_new = sales.commit_identified(
         conn, payload.register_id, payload.receipt_no, payload.customer_ref,
         payload.amount_cents, payload.redeem_points,
     )
+    if is_new:
+        notify_listeners(conn, request.app.state.listeners, result)
+    return result
 
 
 @router.post("/refund", response_model=SaleOut)
-def refund(payload: ReceiptIn, conn: Db, _cashier: Cashier) -> sales.SaleResult:
-    return sales.refund(conn, payload.register_id, payload.receipt_no)
+def refund(payload: ReceiptIn, request: Request, conn: Db, _cashier: Cashier) -> sales.SaleResult:
+    result = sales.refund(conn, payload.register_id, payload.receipt_no)
+    notify_listeners(conn, request.app.state.listeners, result)
+    return result
 
 
 @router.get("/sales", response_model=list[SaleOut])

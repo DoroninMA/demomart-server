@@ -1,7 +1,8 @@
 import sqlite3
 from dataclasses import asdict, dataclass
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
+from pydantic import BaseModel
 
 from . import members, sales
 from .auth import CurrentMember, SignedIn
@@ -48,3 +49,12 @@ def me(conn: Db, member: CurrentMember) -> Me:
 @router.get("/history")
 def history(conn: Db, member: CurrentMember, limit: PageLimit = 50) -> list[sales.HistoryItem]:
     return sales.history(conn, member["id"], limit)
+
+class FcmTokenIn(BaseModel):
+    token: str
+
+
+@router.put("/fcm-token", status_code=204)
+def set_fcm_token(payload: FcmTokenIn, conn: Db, member: CurrentMember) -> Response:
+    conn.execute("UPDATE members SET fcm_token = ? WHERE id = ?", (payload.token, member["id"]))
+    return Response(status_code=204)

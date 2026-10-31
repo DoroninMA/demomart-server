@@ -130,7 +130,7 @@ def commit_identified(
     customer_ref: str | None,
     amount_cents: int,
     redeem_points: int,
-) -> SaleResult:
+) -> tuple[SaleResult, bool]:
     with write_transaction(conn):
         existing = _lookup(conn, register_id, receipt_no)
         now = datetime.now(timezone.utc)
@@ -138,7 +138,8 @@ def commit_identified(
         if customer_ref is not None:
             member = members.resolve_ref(conn, customer_ref, now, allow_expired=existing is not None)
             member_id = member["id"]
-        return _commit(conn, existing, register_id, receipt_no, member_id, amount_cents, redeem_points, now)
+        result = _commit(conn, existing, register_id, receipt_no, member_id, amount_cents, redeem_points, now)
+        return result, existing is None
 
 
 def next_receipt_no(conn: sqlite3.Connection, register_id: str) -> int:

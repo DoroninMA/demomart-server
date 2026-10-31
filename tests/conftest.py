@@ -1,5 +1,5 @@
 import time
-from contextlib import closing
+from contextlib import ExitStack, closing
 
 import pytest
 from fastapi.testclient import TestClient
@@ -74,3 +74,11 @@ def identify(client, db, customer):
     response = client.post("/v1/pos/identify", json={"token": token}, headers=make_cashier(db))
     assert response.status_code == 200, response.text
     return response.json()["customer_ref"]
+
+@pytest.fixture
+def client_with(settings):
+    with ExitStack() as stack:
+        def make_client(*listeners):
+            return stack.enter_context(TestClient(create_app(settings, listeners=list(listeners))))
+
+        yield make_client
