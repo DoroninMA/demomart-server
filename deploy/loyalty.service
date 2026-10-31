@@ -1,0 +1,17 @@
+[Unit]
+Description=DemoMart Loyalty API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=loyalty
+Group=loyalty
+WorkingDirectory=/opt/loyalty/server
+EnvironmentFile=/opt/loyalty/.env
+ExecStart=/opt/loyalty/server/.venv/bin/uvicorn loyalty.asgi:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+NoNewPrivileges=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
