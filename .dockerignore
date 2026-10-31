@@ -1,0 +1,5 @@
+**
+!requirements.txt
+!loyalty/
+!loyalty/*.py
+!loyalty/schema.sql
