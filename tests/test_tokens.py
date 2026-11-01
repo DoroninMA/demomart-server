@@ -28,6 +28,13 @@ def test_previous_step_accepted():
     check_code(S, code, T)
 
 
+@pytest.mark.parametrize("phase", [0, 1, 15, 29])
+@pytest.mark.parametrize("skew", [-30, -20, 20, 30])
+def test_clock_skew_up_to_30s_accepted(phase, skew):
+    _, code = parse_token(make_token(CARD, S, T + phase + skew))
+    check_code(S, code, T + phase)
+
+
 def test_five_minutes_old_is_expired():
     _, code = parse_token(make_token(CARD, S, T - 300))
     with pytest.raises(ApiError) as exc:

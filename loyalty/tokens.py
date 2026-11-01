@@ -41,7 +41,7 @@ def check_code(secret: str, code: str, at: float) -> None:
 
     totp = pyotp.TOTP(secret)
     now = datetime.fromtimestamp(at, timezone.utc)
-    for offset in (0, -1):
+    for offset in (0, -1, 1):
         if at + offset * STEP_SECONDS >= 0 and hmac.compare_digest(totp.at(now, offset), code):
             return
     for offset in (*range(-10, -1), *range(2, 11)):
