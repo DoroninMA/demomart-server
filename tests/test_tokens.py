@@ -63,3 +63,22 @@ def test_format_card_number():
 def test_generated_card_and_secret_have_expected_formats():
     assert re.fullmatch(r"[1-9][0-9]{7}", new_card_number())
     assert re.fullmatch(r"[A-Z2-7]{32}", new_secret())
+
+def test_token_cross_language_vector():
+    assert make_token(CARD, S, T) == "DM1:48210093:877905"
+
+
+def test_firebase_verifier_allows_clock_skew(monkeypatch):
+    from loyalty.auth import FirebaseVerifier, auth, firebase_admin
+
+    app = object()
+    monkeypatch.setattr(firebase_admin, "get_app", lambda: app)
+    calls = []
+
+    def verify(token, **kwargs):
+        calls.append((token, kwargs))
+        return {"uid": "customer"}
+
+    monkeypatch.setattr(auth, "verify_id_token", verify)
+    assert FirebaseVerifier().verify("id-token").uid == "customer"
+    assert calls == [("id-token", {"app": app, "clock_skew_seconds": 10})]

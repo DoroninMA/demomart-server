@@ -53,7 +53,7 @@ class FirebaseVerifier:
 
     def verify(self, id_token: str) -> AuthUser:
         try:
-            claims = auth.verify_id_token(id_token, app=self._app)
+            claims = auth.verify_id_token(id_token, app=self._app, clock_skew_seconds=10)
             return AuthUser(
                 uid=claims["uid"],
                 email=claims.get("email"),

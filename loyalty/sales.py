@@ -31,6 +31,8 @@ class HistoryItem:
     at: str
     paid_cents: int
     points_delta: int
+    earned_points: int
+    redeemed_points: int
 
 
 _SELECT_SALE = """
@@ -181,10 +183,12 @@ def history(conn: sqlite3.Connection, member_id: int, limit: int = 50) -> list[H
     rows = conn.execute(
         """
         SELECT id AS sale_id, 'sale' AS kind, created_at AS at, paid_cents,
-               earned_points - redeem_points AS points_delta
+               earned_points - redeem_points AS points_delta, earned_points,
+               redeem_points AS redeemed_points
         FROM sales WHERE member_id = ?
         UNION ALL
-        SELECT id, 'refund', refunded_at, paid_cents, redeem_points - earned_points
+        SELECT id, 'refund', refunded_at, paid_cents, redeem_points - earned_points,
+               -earned_points, -redeem_points
         FROM sales WHERE member_id = ? AND status = 'refunded'
         ORDER BY at DESC, sale_id DESC, kind ASC LIMIT ?
         """,

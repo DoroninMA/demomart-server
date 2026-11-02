@@ -205,3 +205,17 @@ def test_customer_history(client, cashier, purchase):
     assert response.status_code == 200
     assert [item["kind"] for item in response.json()] == ["refund", "sale"]
     assert [item["points_delta"] for item in response.json()] == [482, -482]
+
+def test_history_breakdown(client, cashier, purchase):
+    sale = post_sale(client, cashier, purchase)
+    assert sale.status_code == 200
+    sale_id = sale.json()["sale_id"]
+    assert refund(client, cashier, purchase).status_code == 200
+
+    response = client.get("/v1/me/history", headers=auth("u1"))
+
+    assert response.status_code == 200
+    items = {item["kind"]: item for item in response.json() if item["sale_id"] == sale_id}
+    fields = ("earned_points", "redeemed_points", "points_delta")
+    assert tuple(items["sale"][field] for field in fields) == (18, 500, -482)
+    assert tuple(items["refund"][field] for field in fields) == (-18, -500, 482)
