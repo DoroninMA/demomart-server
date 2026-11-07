@@ -2,12 +2,15 @@ import hmac
 import re
 import secrets
 from datetime import datetime, timezone
+from typing import Literal
 
 import pyotp
 
 from .errors import ApiError
 
 TOKEN_PATTERN = re.compile(r"DM1:([0-9]{8}):([0-9]{6})")
+WALLET_PATTERN = re.compile(r"DMW1:([0-9]{8}):([A-Z2-9]{10})")
+WALLET_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 STEP_SECONDS = 30
 
 
@@ -33,6 +36,22 @@ def parse_token(token: str) -> tuple[str, str]:
     if not match:
         raise ApiError(422, "token_invalid", "Invalid card token")
     return match[1], match[2]
+
+
+def new_wallet_code() -> str:
+    return "".join(secrets.choice(WALLET_ALPHABET) for _ in range(10))
+
+
+def parse_any(token: str) -> tuple[Literal["app", "wallet"], str, str]:
+    if match := WALLET_PATTERN.fullmatch(token):
+        return "wallet", match[1], match[2]
+    card, code = parse_token(token)
+    return "app", card, code
+
+
+def check_wallet_code(expected: str | None, code: str) -> None:
+    if expected is None or not hmac.compare_digest(expected, code):
+        raise ApiError(422, "token_invalid", "Invalid card token")
 
 
 def check_code(secret: str, code: str, at: float) -> None:

@@ -22,6 +22,14 @@ def connect(path: str) -> sqlite3.Connection:
 
 def init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(Path(__file__).with_name("schema.sql").read_text(encoding="utf-8"))
+    with write_transaction(conn):
+        ensure_column(conn, "members", "wallet_code", "TEXT")
+        ensure_column(conn, "members", "wallet_object_created", "INTEGER NOT NULL DEFAULT 0")
+
+
+def ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
+    if not any(row[1] == column for row in conn.execute(f"PRAGMA table_info({table})")):
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
 
 
 def get_db(request: Request) -> Iterator[sqlite3.Connection]:

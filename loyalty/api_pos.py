@@ -36,12 +36,15 @@ class QuoteIn(BaseModel):
 
 @router.post("/identify")
 def identify(payload: IdentifyIn, conn: Db, _cashier: Cashier) -> Customer:
-    card, code = tokens.parse_token(payload.token)
+    kind, card, code = tokens.parse_any(payload.token)
     member = members.by_card(conn, card)
     if member is None:
         raise ApiError(404, "member_not_found", "Card not found")
     now = datetime.now(timezone.utc)
-    tokens.check_code(member["totp_secret"], code, now.timestamp())
+    if kind == "app":
+        tokens.check_code(member["totp_secret"], code, now.timestamp())
+    else:
+        tokens.check_wallet_code(member["wallet_code"], code)
     return Customer(
         customer_ref=members.new_identification(conn, member["id"], now),
         display_name=member["display_name"],
