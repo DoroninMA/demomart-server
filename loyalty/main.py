@@ -1,8 +1,10 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager, closing
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from . import api_me, api_pos
 from .auth import AuthVerifier, FakeVerifier, FirebaseVerifier, init_firebase
@@ -63,6 +65,7 @@ def create_app(
     install_error_handler(app)
     app.include_router(api_me.router)
     app.include_router(api_pos.router)
+    app.mount("/static", StaticFiles(directory=Path(__file__).with_name("static")), name="static")
 
     @app.get("/health")
     def health() -> dict[str, str]:

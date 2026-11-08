@@ -52,6 +52,18 @@ Use it only on a local server. The Android emulator reaches it at `http://10.0.2
 
 `AUTH_MODE=firebase` verifies Firebase ID tokens. Enable Email/Password and Google sign-in in the Firebase project and point `GOOGLE_APPLICATION_CREDENTIALS` at the Admin SDK key. The same key is used for FCM.
 
+## Google Wallet
+
+Optional; off while `WALLET_ISSUER_ID` is empty.
+
+1. Create an issuer in the Pay & Wallet Console (demo mode is fine).
+2. Enable the Google Wallet API and create a service account with a JSON key.
+3. In the Wallet console, add the service account under Users as Developer.
+4. Set `WALLET_ISSUER_ID`, `WALLET_SERVICE_ACCOUNT` and `WALLET_LOGO_URL` (public HTTPS URL of `/static/wallet-logo.png`).
+5. Run `python -m loyalty.wallet_setup` once.
+
+In demo mode passes show [TEST ONLY] and only console users and test accounts can save them. If the rotating QR does not work on a device, set `WALLET_BARCODE_MODE=static` and add the card again.
+
 ## Deploy
 
 The demo runs on a small Ubuntu VPS: venv + systemd + nginx with a Let's Encrypt certificate.
@@ -64,7 +76,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 install -m 0600 .env.example /opt/loyalty/.env   # then edit it
 ```
 
-In `/opt/loyalty/.env` set `AUTH_MODE=firebase`, `DATABASE_PATH=/opt/loyalty/data/loyalty.db` and the Firebase values. Keep the keys in `/opt/loyalty/secrets` (`root:loyalty`, `0640`).
+In `/opt/loyalty/.env` set `AUTH_MODE=firebase`, `DATABASE_PATH=/opt/loyalty/data/loyalty.db` and the Firebase/Wallet values. Keep the keys in `/opt/loyalty/secrets` (`root:loyalty`, `0640`).
 
 Seed as the service user, then start the unit:
 
@@ -89,6 +101,8 @@ OpenAPI docs at `/docs`. Amounts are integer euro cents. Protected routes take `
 | GET | `/v1/me` | profile and balance |
 | GET | `/v1/me/history?limit=50` | sales and refunds |
 | PUT | `/v1/me/fcm-token` | push token |
+| GET | `/v1/me/wallet` | is Wallet enabled |
+| POST | `/v1/me/wallet/save` | Add to Google Wallet link |
 | POST | `/v1/pos/identify` | card token → `customer_ref` (valid 10 min) |
 | POST | `/v1/pos/quote` | price a sale with redemption |
 | POST | `/v1/pos/commit` | record a sale, idempotent per register + receipt |
