@@ -80,7 +80,7 @@ def current_member(conn: Db, user: SignedIn) -> sqlite3.Row:
     member = members.by_uid(conn, user.uid)
     if member is None:
         raise ApiError(401, "session_required", "Open a session first")
-    return member
+    return members.sync_name(conn, member, user.name)
 
 
 CurrentMember = Annotated[sqlite3.Row, Depends(current_member)]

@@ -45,7 +45,7 @@ def open_session(conn: sqlite3.Connection, user: "AuthUser") -> sqlite3.Row:
     with write_transaction(conn):
         member = by_uid(conn, user.uid)
         if member is not None:
-            return member
+            return sync_name(conn, member, user.name)
         member = by_email(conn, user.email) if user.email else None
         if member is not None:
             if user.email_verified and member["firebase_uid"] is None:
@@ -57,6 +57,16 @@ def open_session(conn: sqlite3.Connection, user: "AuthUser") -> sqlite3.Row:
 
         display_name = user.name or (user.email.split("@", 1)[0] if user.email else "Customer")
         return create_member(conn, user.uid, user.email, display_name)
+
+
+def sync_name(conn: sqlite3.Connection, member: sqlite3.Row, name: str | None) -> sqlite3.Row:
+    # The name is copied once at sign-up; follow later changes from the ID token
+    name = (name or "").strip()
+    if not name or name == member["display_name"]:
+        return member
+    return conn.execute(
+        "UPDATE members SET display_name = ? WHERE id = ? RETURNING *", (name, member["id"])
+    ).fetchone()
 
 
 def balance(conn: sqlite3.Connection, member_id: int) -> int:

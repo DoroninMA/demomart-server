@@ -92,3 +92,15 @@ def test_parallel_requests(client):
     with ThreadPoolExecutor(8) as pool:
         responses = list(pool.map(lambda _: client.get("/v1/me", headers=headers), range(20)))
     assert all(response.status_code == 200 for response in responses)
+
+
+def test_name_follows_token(client):
+    client.post("/v1/me/session", headers=auth("u1", "anna@demo.test", "Anna K."))
+    assert client.get("/v1/me", headers=auth("u1", "anna@demo.test", "Anna Kowalska")).json()["display_name"] == "Anna Kowalska"
+    renamed = client.post("/v1/me/session", headers=auth("u1", "anna@demo.test", "Anna B.")).json()
+    assert renamed["display_name"] == "Anna B."
+
+
+def test_token_without_name_keeps_name(client):
+    client.post("/v1/me/session", headers=auth("u1", "anna@demo.test", "Anna K."))
+    assert client.get("/v1/me", headers=auth("u1", "anna@demo.test", "")).json()["display_name"] == "Anna K."
