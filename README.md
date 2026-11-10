@@ -1,6 +1,16 @@
-# DemoMart Loyalty server
+<p align="center"><img src="docs/icon.svg" width="120" alt="App icon"></p>
+
+<h1 align="center">DemoMart Loyalty server</h1>
+
+<p align="center">Part of <a href="https://github.com/DoroninMA/demomart"><b>DemoMart</b></a>, a demo loyalty card system</p>
 
 FastAPI + SQLite backend for the DemoMart loyalty demo. Python 3.12.
+
+## Architecture
+
+<p align="center"><img src="docs/architecture.png" width="800" alt="How the apps talk to the server"></p>
+
+The register sends the card token from the customer's phone, prices and commits the sale; the server pushes the new balance to the customer app over FCM. Source: `docs/architecture.drawio`.
 
 ## Run locally
 
@@ -111,6 +121,8 @@ OpenAPI docs at `/docs`. Amounts are integer euro cents. Protected routes take `
 | GET | `/v1/pos/next-receipt?register_id=R1` | next receipt number |
 
 POS routes need a cashier. `customer_ref: null` means a sale without a card.
+
+<p align="center"><img src="docs/swagger.png" width="700" alt="Swagger UI"></p>
 
 ## License
 
