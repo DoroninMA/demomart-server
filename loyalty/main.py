@@ -57,7 +57,7 @@ def create_app(
             if executor is not None:
                 executor.shutdown(wait=False, cancel_futures=True)
 
-    app = FastAPI(title="DemoMart Loyalty", lifespan=lifespan)
+    app = FastAPI(title="DemoMart Loyalty", version="1.0.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.verifier = verifier
     app.state.listeners = listeners
