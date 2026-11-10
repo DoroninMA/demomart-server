@@ -120,9 +120,17 @@ def refund(payload: ReceiptIn, request: Request, conn: Db, _cashier: Cashier) ->
 
 @router.get("/sales", response_model=list[SaleOut])
 def recent_sales(
-    register_id: RegisterQuery, conn: Db, _cashier: Cashier, limit: PageLimit = 20
+    register_id: RegisterQuery,
+    conn: Db,
+    _cashier: Cashier,
+    limit: PageLimit = 20,
+    before_at: str | None = None,
+    before_id: int | None = None,
 ) -> list[sales.SaleResult]:
-    return sales.recent(conn, register_id, limit)
+    if (before_at is None) != (before_id is None):
+        raise ApiError(422, "bad_cursor", "Pass before_at and before_id together")
+    before = None if before_at is None else (before_at, before_id)
+    return sales.recent(conn, register_id, limit, before)
 
 
 @router.get("/next-receipt")

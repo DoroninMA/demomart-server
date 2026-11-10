@@ -245,3 +245,22 @@ def test_history_cursor_must_be_complete(client):
     make_customer(client, "u1")
     response = client.get("/v1/me/history", params={"before_id": 3}, headers=auth("u1"))
     assert response.status_code == 422
+
+
+def test_recent_sales_pages_cover_everything_once(client, db, cashier):
+    noon = datetime(2026, 11, 1, 12, tzinfo=timezone.utc)
+    for receipt in range(1, 8):
+        # receipts 5..7 share one timestamp to exercise the tie-break
+        sales.commit(db, "R1", receipt, None, 1000, 0, at=noon.replace(hour=12 + min(receipt, 5)))
+    full = client.get("/v1/pos/sales", params={"register_id": "R1", "limit": 100}, headers=cashier).json()
+    pages, params = [], {"register_id": "R1", "limit": 3}
+    while page := client.get("/v1/pos/sales", params=params, headers=cashier).json():
+        pages += page
+        params = {**params, "before_at": page[-1]["created_at"], "before_id": page[-1]["sale_id"]}
+    assert [sale["receipt_no"] for sale in full] == [7, 6, 5, 4, 3, 2, 1]
+    assert pages == full
+
+
+def test_recent_sales_cursor_must_be_complete(client, cashier):
+    response = client.get("/v1/pos/sales", params={"register_id": "R1", "before_id": 3}, headers=cashier)
+    assert response.status_code == 422

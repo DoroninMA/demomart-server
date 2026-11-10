@@ -171,10 +171,18 @@ def refund(conn: sqlite3.Connection, register_id: str, receipt_no: int) -> SaleR
         return _result(_lookup(conn, register_id, receipt_no))
 
 
-def recent(conn: sqlite3.Connection, register_id: str, limit: int = 20) -> list[SaleResult]:
+def recent(
+    conn: sqlite3.Connection, register_id: str, limit: int = 20, before: tuple[str, int] | None = None
+) -> list[SaleResult]:
+    # before: (created_at, sale_id) of the last sale on the previous page
+    page_filter, params = "", [register_id]
+    if before is not None:
+        page_filter = " AND (sales.created_at < ? OR (sales.created_at = ? AND sales.id < ?))"
+        params += [before[0], before[0], before[1]]
     rows = conn.execute(
-        _SELECT_SALE + " WHERE register_id = ? ORDER BY sales.created_at DESC, sales.id DESC LIMIT ?",
-        (register_id, limit),
+        _SELECT_SALE + " WHERE register_id = ?" + page_filter
+        + " ORDER BY sales.created_at DESC, sales.id DESC LIMIT ?",
+        (*params, limit),
     )
     return [_result(row) for row in rows]
 
