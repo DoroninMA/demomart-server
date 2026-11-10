@@ -1,5 +1,6 @@
 import sqlite3
 from dataclasses import asdict, dataclass
+from typing import Literal
 
 from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel
@@ -49,8 +50,19 @@ def me(conn: Db, member: CurrentMember) -> Me:
     return _profile(conn, member)
 
 @router.get("/history")
-def history(conn: Db, member: CurrentMember, limit: PageLimit = 50) -> list[sales.HistoryItem]:
-    return sales.history(conn, member["id"], limit)
+def history(
+    conn: Db,
+    member: CurrentMember,
+    limit: PageLimit = 50,
+    before_at: str | None = None,
+    before_id: int | None = None,
+    before_kind: Literal["sale", "refund"] | None = None,
+) -> list[sales.HistoryItem]:
+    cursor = (before_at, before_id, before_kind)
+    if any(part is None for part in cursor) and any(part is not None for part in cursor):
+        raise ApiError(422, "bad_cursor", "Pass before_at, before_id and before_kind together")
+    before = None if before_at is None else sales.HistoryCursor(before_at, before_id, before_kind)
+    return sales.history(conn, member["id"], limit, before)
 
 class FcmTokenIn(BaseModel):
     token: str

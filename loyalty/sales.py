@@ -179,19 +179,40 @@ def recent(conn: sqlite3.Connection, register_id: str, limit: int = 20) -> list[
     return [_result(row) for row in rows]
 
 
-def history(conn: sqlite3.Connection, member_id: int, limit: int = 50) -> list[HistoryItem]:
+@dataclass(frozen=True)
+class HistoryCursor:
+    at: str
+    sale_id: int
+    kind: str
+
+
+def history(
+    conn: sqlite3.Connection, member_id: int, limit: int = 50, before: HistoryCursor | None = None
+) -> list[HistoryItem]:
+    # before: the last item of the previous page
+    page_filter = ""
+    if before is not None:
+        page_filter = "WHERE at < :at OR (at = :at AND sale_id < :id) OR (at = :at AND sale_id = :id AND kind > :kind)"
     rows = conn.execute(
-        """
-        SELECT id AS sale_id, 'sale' AS kind, created_at AS at, paid_cents,
-               earned_points - redeem_points AS points_delta, earned_points,
-               redeem_points AS redeemed_points
-        FROM sales WHERE member_id = ?
-        UNION ALL
-        SELECT id, 'refund', refunded_at, paid_cents, redeem_points - earned_points,
-               -earned_points, -redeem_points
-        FROM sales WHERE member_id = ? AND status = 'refunded'
-        ORDER BY at DESC, sale_id DESC, kind ASC LIMIT ?
+        f"""
+        SELECT * FROM (
+            SELECT id AS sale_id, 'sale' AS kind, created_at AS at, paid_cents,
+                   earned_points - redeem_points AS points_delta, earned_points,
+                   redeem_points AS redeemed_points
+            FROM sales WHERE member_id = :member
+            UNION ALL
+            SELECT id, 'refund', refunded_at, paid_cents, redeem_points - earned_points,
+                   -earned_points, -redeem_points
+            FROM sales WHERE member_id = :member AND status = 'refunded'
+        ) {page_filter}
+        ORDER BY at DESC, sale_id DESC, kind ASC LIMIT :limit
         """,
-        (member_id, member_id, limit),
+        {
+            "member": member_id,
+            "limit": limit,
+            "at": before.at if before else None,
+            "id": before.sale_id if before else None,
+            "kind": before.kind if before else None,
+        },
     )
     return [HistoryItem(**dict(row)) for row in rows]

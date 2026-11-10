@@ -219,3 +219,29 @@ def test_history_breakdown(client, cashier, purchase):
     fields = ("earned_points", "redeemed_points", "points_delta")
     assert tuple(items["sale"][field] for field in fields) == (18, 500, -482)
     assert tuple(items["refund"][field] for field in fields) == (-18, -500, 482)
+
+
+def test_history_pages_cover_everything_once(client, db):
+    make_customer(client, "u1")
+    member_id = db.execute("SELECT id FROM members WHERE firebase_uid = 'u1'").fetchone()[0]
+    noon = datetime(2026, 11, 1, 12, tzinfo=timezone.utc)
+    for receipt in range(1, 8):
+        # receipts 5..7 share one timestamp to exercise the tie-breaks
+        at = noon.replace(hour=12 + min(receipt, 5))
+        sales.commit(db, "R1", receipt, member_id, 1000, 0, at=at)
+    sales.refund(db, "R1", 6)
+
+    full = client.get("/v1/me/history", params={"limit": 100}, headers=auth("u1")).json()
+    pages, params = [], {"limit": 3}
+    while page := client.get("/v1/me/history", params=params, headers=auth("u1")).json():
+        pages += page
+        last = page[-1]
+        params = {"limit": 3, "before_at": last["at"], "before_id": last["sale_id"], "before_kind": last["kind"]}
+    assert len(full) == 8
+    assert pages == full
+
+
+def test_history_cursor_must_be_complete(client):
+    make_customer(client, "u1")
+    response = client.get("/v1/me/history", params={"before_id": 3}, headers=auth("u1"))
+    assert response.status_code == 422
